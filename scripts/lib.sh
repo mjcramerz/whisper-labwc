@@ -29,6 +29,11 @@ unset CMAKE_GENERATOR
 : "${BUILD_JOBS:=auto}"
 : "${CMAKE_C_COMPILER:=}"
 : "${CMAKE_CXX_COMPILER:=}"
+: "${CMAKE_C_COMPILER_LAUNCHER:=}"
+: "${CMAKE_CXX_COMPILER_LAUNCHER:=}"
+: "${CMAKE_C_FLAGS:=}"
+: "${CMAKE_CXX_FLAGS:=}"
+: "${SCCACHE_DIR:=}"
 : "${GGML_NATIVE:=1}"
 : "${ENABLE_LTO:=1}"
 : "${ENABLE_CCACHE:=1}"
@@ -82,6 +87,12 @@ SOURCE_DIR_ABS="$(resolve_path "$SOURCE_DIR")"
 BUILD_DIR_ABS="$(resolve_path "$BUILD_DIR")"
 OUTPUT_DIR_ABS="$(resolve_path "$OUTPUT_DIR")"
 MODEL_DIR_ABS="$(resolve_path "$MODEL_DIR")"
+SCCACHE_DIR_ABS=''
+if [[ -n "$SCCACHE_DIR" ]]; then
+    SCCACHE_DIR_ABS="$(resolve_path "$SCCACHE_DIR")"
+fi
+# This global is intentionally consumed by scripts that source this library.
+# shellcheck disable=SC2034
 MANIFEST_PATH="$ROOT_DIR/models/models.tsv"
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*" >&2; }
@@ -104,6 +115,30 @@ validate_bool() {
 cmake_bool() {
     local value=$1
     [[ "$value" == "1" ]] && printf 'ON\n' || printf 'OFF\n'
+}
+
+sccache_enabled() {
+    [[ "$CMAKE_C_COMPILER_LAUNCHER" == "sccache" \
+        && "$CMAKE_CXX_COMPILER_LAUNCHER" == "sccache" ]]
+}
+
+cache_launcher_label() {
+    if sccache_enabled; then
+        printf 'sccache\n'
+    elif [[ "$ENABLE_CCACHE" == "1" ]]; then
+        printf 'upstream auto-detect\n'
+    else
+        printf 'disabled\n'
+    fi
+}
+
+prepare_sccache_dir() {
+    sccache_enabled || return 0
+    require_cmd sccache
+    mkdir -p -- "$SCCACHE_DIR_ABS"
+    [[ -d "$SCCACHE_DIR_ABS" && -w "$SCCACHE_DIR_ABS" ]] \
+        || die "SCCACHE_DIR is not a writable directory: $SCCACHE_DIR_ABS"
+    export SCCACHE_DIR="$SCCACHE_DIR_ABS"
 }
 
 paths_overlap() {
@@ -138,6 +173,16 @@ validate_common_config() {
     [[ -n "$WHISPER_CPP_REPO" ]] || die "WHISPER_CPP_REPO cannot be empty"
     [[ -n "$WHISPER_CPP_REF" ]] || die "WHISPER_CPP_REF cannot be empty"
     [[ -n "$BLAS_VENDOR" ]] || die "BLAS_VENDOR cannot be empty"
+
+    if [[ -n "$CMAKE_C_COMPILER_LAUNCHER" || -n "$CMAKE_CXX_COMPILER_LAUNCHER" || -n "$SCCACHE_DIR" ]]; then
+        sccache_enabled \
+            || die "CMAKE_C_COMPILER_LAUNCHER and CMAKE_CXX_COMPILER_LAUNCHER must both be 'sccache'"
+        [[ -n "$SCCACHE_DIR_ABS" && "$SCCACHE_DIR_ABS" != "/" && "$SCCACHE_DIR_ABS" != "$ROOT_DIR" ]] \
+            || die "SCCACHE_DIR resolves to an unsafe path: $SCCACHE_DIR_ABS"
+        if [[ "$ALLOW_EXTERNAL_DIRS" == "0" && "$SCCACHE_DIR_ABS" != "$ROOT_DIR/"* ]]; then
+            die "SCCACHE_DIR must remain under ROOT_DIR unless ALLOW_EXTERNAL_DIRS=1: $SCCACHE_DIR_ABS"
+        fi
+    fi
 
     local backends=$((ENABLE_CUDA + ENABLE_HIP + ENABLE_VULKAN + ENABLE_SYCL))
     if (( backends > 1 )); then
@@ -175,6 +220,12 @@ validate_common_config() {
     if paths_overlap "$OUTPUT_DIR_ABS" "$MODEL_DIR_ABS" \
         && [[ "$MODEL_DIR_ABS" != "$OUTPUT_DIR_ABS" && "$MODEL_DIR_ABS" != "$OUTPUT_DIR_ABS/"* ]]; then
         die "When OUTPUT_DIR and MODEL_DIR overlap, MODEL_DIR must be OUTPUT_DIR itself or one of its children"
+    fi
+    if sccache_enabled; then
+        paths_overlap "$SCCACHE_DIR_ABS" "$SOURCE_DIR_ABS" && die "SCCACHE_DIR and SOURCE_DIR must not overlap"
+        paths_overlap "$SCCACHE_DIR_ABS" "$BUILD_DIR_ABS" && die "SCCACHE_DIR and BUILD_DIR must not overlap"
+        paths_overlap "$SCCACHE_DIR_ABS" "$OUTPUT_DIR_ABS" && die "SCCACHE_DIR and OUTPUT_DIR must not overlap"
+        paths_overlap "$SCCACHE_DIR_ABS" "$MODEL_DIR_ABS" && die "SCCACHE_DIR and MODEL_DIR must not overlap"
     fi
     return 0
 }

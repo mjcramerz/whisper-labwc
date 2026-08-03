@@ -48,7 +48,7 @@ remove_output_products() {
     safe_remove_path "$OUTPUT_DIR_ABS/bin" "staged binary directory"
     safe_remove_path "$OUTPUT_DIR_ABS/metadata" "metadata directory"
     safe_remove_path "$OUTPUT_DIR_ABS/whisper-cli" "staged binary symlink"
-    rm -rf -- "$OUTPUT_DIR_ABS/bin" "$OUTPUT_DIR_ABS/metadata"
+    rm -rf -- "${OUTPUT_DIR_ABS:?}/bin" "${OUTPUT_DIR_ABS:?}/metadata"
     rm -f -- "$OUTPUT_DIR_ABS/whisper-cli"
 }
 

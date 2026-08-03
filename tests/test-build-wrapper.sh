@@ -43,6 +43,11 @@ common_env=(
     MODEL_DIR="$tmp/output/models"
     CMAKE_GENERATOR=auto
     BUILD_JOBS=2
+    CMAKE_C_COMPILER_LAUNCHER=
+    CMAKE_CXX_COMPILER_LAUNCHER=
+    CMAKE_C_FLAGS=
+    CMAKE_CXX_FLAGS=
+    SCCACHE_DIR=
     GGML_NATIVE=1
     ENABLE_LTO=1
     ENABLE_CCACHE=0
@@ -74,7 +79,10 @@ run_wrapper() {
 }
 
 run_wrapper "$ROOT_DIR/scripts/doctor.sh" >"$tmp/doctor.log" 2>&1
-! grep -q 'CMAKE_GENERATOR was set' "$tmp/doctor.log"
+if grep -q -- 'CMAKE_GENERATOR was set' "$tmp/doctor.log"; then
+    printf 'CMAKE_GENERATOR leaked into the CMake environment\n' >&2
+    exit 1
+fi
 run_wrapper "$ROOT_DIR/scripts/source.sh" >/dev/null
 [[ -f "$tmp/source/.native-builder-source" ]]
 [[ -f "$tmp/source/.native-builder-source-dir" ]]
@@ -91,7 +99,10 @@ if run_wrapper "$ROOT_DIR/scripts/source.sh" >"$tmp/dirty.log" 2>&1; then
 fi
 grep -q 'tracked changes' "$tmp/dirty.log"
 run_wrapper FORCE_SOURCE_RESET=1 "$ROOT_DIR/scripts/source.sh" >/dev/null
-! grep -q 'dirty test' "$tmp/source/main.cpp"
+if grep -q -- 'dirty test' "$tmp/source/main.cpp"; then
+    printf 'FORCE_SOURCE_RESET did not remove the tracked source modification\n' >&2
+    exit 1
+fi
 
 run_wrapper "$ROOT_DIR/scripts/configure.sh" >/dev/null
 [[ -f "$tmp/build/.native-builder-build" ]]

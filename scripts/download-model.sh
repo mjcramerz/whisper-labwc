@@ -224,7 +224,10 @@ info "$notes"
 host_ram="$(available_ram_gib)"
 if [[ "$host_ram" =~ ^[0-9]+$ ]] && (( host_ram > 0 && host_ram < min_ram )); then
     message="Host has about ${host_ram} GiB RAM; this model is estimated to need at least ${min_ram} GiB"
-    [[ "$STRICT_RESOURCES" == "1" ]] && die "$message" || warn "$message"
+    if [[ "$STRICT_RESOURCES" == "1" ]]; then
+        die "$message"
+    fi
+    warn "$message"
 fi
 
 if [[ -f "$destination" && "$FORCE_DOWNLOAD" == "0" ]]; then

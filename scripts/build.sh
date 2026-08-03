@@ -79,6 +79,8 @@ binary_sha256="$(sha256sum "$OUTPUT_DIR_ABS/bin/whisper-cli" | awk '{print $1}')
     printf 'source_commit=%s\n' "$commit"
     printf 'host=%s\n' "$(uname -a)"
     printf 'backend=%s\n' "$(accelerator_label)"
+    printf 'c_flags=%s\n' "$CMAKE_C_FLAGS"
+    printf 'cxx_flags=%s\n' "$CMAKE_CXX_FLAGS"
     printf 'c_flags_release=%s\n' "$(effective_c_flags)"
     printf 'cxx_flags_release=%s\n' "$(effective_cxx_flags)"
     printf 'c_compiler=%s\n' "$($cc_path --version 2>/dev/null | head -n1)"
@@ -87,7 +89,10 @@ binary_sha256="$(sha256sum "$OUTPUT_DIR_ABS/bin/whisper-cli" | awk '{print $1}')
     printf 'build_jobs=%s\n' "$jobs"
     printf 'ggml_native=%s\n' "$GGML_NATIVE"
     printf 'lto=%s\n' "$ENABLE_LTO"
-    printf 'ccache=%s\n' "$ENABLE_CCACHE"
+    printf 'compiler_cache=%s\n' "$(cache_launcher_label)"
+    if sccache_enabled; then
+        printf 'sccache_dir=%s\n' "$SCCACHE_DIR_ABS"
+    fi
     printf 'openmp=%s\n' "$ENABLE_OPENMP"
     printf 'cpu_repack=%s\n' "$ENABLE_CPU_REPACK"
     printf 'fast_math=%s\n' "$ENABLE_FAST_MATH"

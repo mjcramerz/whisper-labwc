@@ -60,16 +60,16 @@ CPP
 
 c_flags="$(effective_c_flags)"
 cxx_flags="$(effective_cxx_flags)"
-read -r -a c_flag_array <<<"$c_flags"
-read -r -a cxx_flag_array <<<"$cxx_flags"
+read -r -a c_flag_array <<<"$CMAKE_C_FLAGS $c_flags"
+read -r -a cxx_flag_array <<<"$CMAKE_CXX_FLAGS $cxx_flags"
 
 if ! "$cc_path" -std=c11 "${c_flag_array[@]}" -c "$tmpdir/probe.c" -o "$tmpdir/probe-c.o" >/dev/null 2>&1; then
-    die "C compiler rejected the configured Release flags: $c_flags"
+    die "C compiler rejected the configured CMake and Release flags: $CMAKE_C_FLAGS $c_flags"
 fi
 if ! "$cxx_path" -std=c++17 "${cxx_flag_array[@]}" -c "$tmpdir/probe.cpp" -o "$tmpdir/probe-cxx.o" >/dev/null 2>&1; then
-    die "C++ compiler rejected the configured Release flags: $cxx_flags"
+    die "C++ compiler rejected the configured CMake and Release flags: $CMAKE_CXX_FLAGS $cxx_flags"
 fi
-info "Release flags accepted: $cxx_flags"
+info "CMake and Release flags accepted: $CMAKE_CXX_FLAGS $cxx_flags"
 
 if [[ "$ENABLE_LTO" == "1" ]]; then
     "$cxx_path" -std=c++17 -O2 -flto "$tmpdir/probe.cpp" -o "$tmpdir/lto-probe" >/dev/null 2>&1 \
@@ -87,7 +87,11 @@ CPP
     info "OpenMP compiler/runtime probe succeeded"
 fi
 
-if [[ "$ENABLE_CCACHE" == "1" ]] && ! command -v ccache >/dev/null 2>&1 && ! command -v sccache >/dev/null 2>&1; then
+if sccache_enabled; then
+    require_cmd sccache
+    info "CMake compiler launcher: sccache"
+    info "sccache directory: $SCCACHE_DIR_ABS"
+elif [[ "$ENABLE_CCACHE" == "1" ]] && ! command -v ccache >/dev/null 2>&1 && ! command -v sccache >/dev/null 2>&1; then
     warn "ENABLE_CCACHE=1 but neither ccache nor sccache is installed; the build remains valid but uncached"
 fi
 

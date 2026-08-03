@@ -16,7 +16,7 @@ model_path=''
 if [[ -f "$selection" ]]; then
     model_path="$selection"
 else
-    while IFS=$'\t' read -r id family params_m file_mib min_ram rec_ram cores language precision local_name checksum_algo checksum url notes; do
+    while IFS=$'\t' read -r id _ _ _ _ _ _ _ _ local_name _; do
         [[ -z "$id" || "$id" == \#* || "$id" == "id" ]] && continue
         if [[ "$id" == "$selection" ]]; then
             model_path="$MODEL_DIR_ABS/$local_name"

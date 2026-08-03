@@ -61,6 +61,12 @@ fi
 
 c_flags="$(effective_c_flags)"
 cxx_flags="$(effective_cxx_flags)"
+prepare_sccache_dir
+
+upstream_ccache="$ENABLE_CCACHE"
+if sccache_enabled; then
+    upstream_ccache=0
+fi
 
 args=(
     -S "$SOURCE_DIR_ABS"
@@ -69,6 +75,8 @@ args=(
     -DCMAKE_BUILD_TYPE=Release
     "-DCMAKE_C_COMPILER=$cc_path"
     "-DCMAKE_CXX_COMPILER=$cxx_path"
+    "-DCMAKE_C_FLAGS=$CMAKE_C_FLAGS"
+    "-DCMAKE_CXX_FLAGS=$CMAKE_CXX_FLAGS"
     "-DCMAKE_C_FLAGS_RELEASE=$c_flags"
     "-DCMAKE_CXX_FLAGS_RELEASE=$cxx_flags"
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -83,7 +91,7 @@ args=(
     "-DWHISPER_OPENVINO=$(cmake_bool "$ENABLE_OPENVINO")"
     "-DGGML_NATIVE=$(cmake_bool "$GGML_NATIVE")"
     "-DGGML_LTO=$(cmake_bool "$ENABLE_LTO")"
-    "-DGGML_CCACHE=$(cmake_bool "$ENABLE_CCACHE")"
+    "-DGGML_CCACHE=$(cmake_bool "$upstream_ccache")"
     "-DGGML_OPENMP=$(cmake_bool "$ENABLE_OPENMP")"
     "-DGGML_CPU_REPACK=$(cmake_bool "$ENABLE_CPU_REPACK")"
     -DGGML_CPU=ON
@@ -104,6 +112,13 @@ args=(
     "-DGGML_SYCL_F16=$(cmake_bool "$ENABLE_SYCL_F16")"
     "-DGGML_SYCL_TARGET=$SYCL_TARGET"
 )
+
+if sccache_enabled; then
+    args+=(
+        "-DCMAKE_C_COMPILER_LAUNCHER=$CMAKE_C_COMPILER_LAUNCHER"
+        "-DCMAKE_CXX_COMPILER_LAUNCHER=$CMAKE_CXX_COMPILER_LAUNCHER"
+    )
+fi
 
 if [[ "$ENABLE_CUDA" == "1" ]]; then
     cuda_archs="$(detect_cuda_archs || true)"
