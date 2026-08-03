@@ -1,0 +1,20 @@
+# Local configuration and credentials
+.env
+.env.local
+
+# Managed source, build, and output artifacts
+.cache/
+.build/
+output/
+
+# Download and lock remnants
+.locks/
+*.part
+*.lock
+*.corrupt.*
+*.meta.tmp.*
+
+# Editors and OS files
+*.swp
+*~
+.DS_Store
