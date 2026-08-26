@@ -1,5 +1,4 @@
-# Local configuration and credentials
-.env
+# Local credentials and machine-only overrides
 .env.local
 
 # Managed source, build, and output artifacts

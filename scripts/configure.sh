@@ -61,7 +61,9 @@ fi
 
 c_flags="$(effective_c_flags)"
 cxx_flags="$(effective_cxx_flags)"
+cuda_flags="$(effective_cuda_flags)"
 prepare_sccache_dir
+prepare_cuda_glibc_compat
 
 upstream_ccache="$ENABLE_CCACHE"
 if sccache_enabled; then
@@ -83,7 +85,7 @@ args=(
     -DBUILD_SHARED_LIBS=OFF
     -DWHISPER_BUILD_TESTS=OFF
     -DWHISPER_BUILD_EXAMPLES=ON
-    -DWHISPER_BUILD_SERVER=OFF
+    "-DWHISPER_BUILD_SERVER=$(cmake_bool "$BUILD_SERVER")"
     -DWHISPER_FATAL_WARNINGS=OFF
     -DWHISPER_CURL=OFF
     -DWHISPER_SDL2=OFF
@@ -104,8 +106,14 @@ args=(
     "-DGGML_BLAS_VENDOR=$BLAS_VENDOR"
     "-DGGML_CUDA=$(cmake_bool "$ENABLE_CUDA")"
     "-DGGML_CUDA_FA=$(cmake_bool "$ENABLE_CUDA_FA")"
+    "-DGGML_CUDA_FA_ALL_QUANTS=$(cmake_bool "$ENABLE_CUDA_FA_ALL_QUANTS")"
     "-DGGML_CUDA_FORCE_MMQ=$(cmake_bool "$CUDA_FORCE_MMQ")"
     "-DGGML_CUDA_FORCE_CUBLAS=$(cmake_bool "$CUDA_FORCE_CUBLAS")"
+    "-DGGML_CUDA_NO_PEER_COPY=$(cmake_bool "$CUDA_NO_PEER_COPY")"
+    "-DGGML_CUDA_NO_VMM=$(cmake_bool "$CUDA_NO_VMM")"
+    "-DGGML_CUDA_GRAPHS=$(cmake_bool "$ENABLE_CUDA_GRAPHS")"
+    "-DGGML_CUDA_NCCL=$(cmake_bool "$ENABLE_CUDA_NCCL")"
+    "-DGGML_CUDA_COMPRESSION_MODE=$CUDA_COMPRESSION_MODE"
     "-DGGML_HIP=$(cmake_bool "$ENABLE_HIP")"
     "-DGGML_VULKAN=$(cmake_bool "$ENABLE_VULKAN")"
     "-DGGML_SYCL=$(cmake_bool "$ENABLE_SYCL")"
@@ -121,10 +129,32 @@ if sccache_enabled; then
 fi
 
 if [[ "$ENABLE_CUDA" == "1" ]]; then
+    cuda="$(selected_cuda)"
+    cuda_path="$(canonical_command "$cuda" || true)"
+    [[ -n "$cuda_path" ]] || die "CUDA compiler not found: $cuda"
+    cuda_host="$(selected_cuda_host)"
+    cuda_host_path="$(canonical_command "$cuda_host" || true)"
+    [[ -n "$cuda_host_path" ]] || die "CUDA host compiler not found: $cuda_host"
     cuda_archs="$(detect_cuda_archs || true)"
     [[ -n "$cuda_archs" ]] \
         || die "Could not determine a host CUDA architecture. Set CUDA_ARCHS explicitly."
-    args+=("-DCMAKE_CUDA_ARCHITECTURES=$cuda_archs")
+    cmake_cuda_compiler="$cuda_path"
+    cmake_cuda_launcher="$CMAKE_CUDA_COMPILER_LAUNCHER"
+    if [[ "$ENABLE_CUDA_GLIBC_COMPAT" == "1" ]]; then
+        cmake_cuda_compiler="$ROOT_DIR/scripts/cuda-compat-nvcc.sh"
+        cmake_cuda_launcher=''
+        unset CMAKE_CUDA_COMPILER_LAUNCHER
+    fi
+    args+=(
+        "-DCMAKE_CUDA_COMPILER=$cmake_cuda_compiler"
+        "-DCMAKE_CUDA_HOST_COMPILER=$cuda_host_path"
+        "-DCMAKE_CUDA_FLAGS=$CMAKE_CUDA_FLAGS"
+        "-DCMAKE_CUDA_FLAGS_RELEASE=$cuda_flags"
+        "-DCMAKE_CUDA_ARCHITECTURES=$cuda_archs"
+    )
+    if [[ -n "$cmake_cuda_launcher" ]]; then
+        args+=("-DCMAKE_CUDA_COMPILER_LAUNCHER=$cmake_cuda_launcher")
+    fi
     info "CUDA architectures: $cuda_archs"
 fi
 

@@ -26,6 +26,9 @@ printf 'Running model-download validation test with a local fake transport...\n'
 printf 'Running host-native sccache configuration test with fake tools...\n'
 "$TEST_DIR/test-host-config.sh"
 
+printf 'Running RAM/CUDA profile builds and tarball checks with fake tools...\n'
+"$TEST_DIR/test-profile-builds.sh"
+
 printf 'Running model selection and execution wrapper test with a fake binary...\n'
 "$TEST_DIR/test-run-wrapper.sh"
 

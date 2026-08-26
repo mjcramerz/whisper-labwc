@@ -1,6 +1,6 @@
 # Primary sources
 
-Verified on 2026-08-03. The build wrapper is pinned to whisper.cpp `v1.9.1` by
+Verified on 2026-08-26. The build wrapper is pinned to whisper.cpp `v1.9.1` by
 default, so version-specific links are used wherever possible.
 
 ## whisper.cpp source and build interface
@@ -9,11 +9,15 @@ default, so version-specific links are used wherever possible.
 - Top-level CMake options: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/CMakeLists.txt
 - GGML CMake options: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/ggml/CMakeLists.txt
 - CUDA backend CMake: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/ggml/src/ggml-cuda/CMakeLists.txt
+- CLI/server example routing: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/examples/CMakeLists.txt
+- Server target definition: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/examples/server/CMakeLists.txt
 - HIP backend CMake: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/ggml/src/ggml-hip/CMakeLists.txt
 - Build and accelerator documentation: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/README.md
 - Upstream GGML downloader: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/models/download-ggml-model.sh
 - Upstream model documentation/checksums: https://github.com/ggml-org/whisper.cpp/blob/v1.9.1/models/README.md
 - Pre-converted upstream GGML files: https://huggingface.co/ggerganov/whisper.cpp
+- NVIDIA legacy CUDA GPU compute capabilities: https://developer.nvidia.com/cuda-legacy-gpus
+- Upstream ggml CUDA/new-glibc compatibility guidance: https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md#fixing-compatibility-issues-with-old-cuda-and-new-glibc
 
 ## Whisper and Distil-Whisper model metadata
 

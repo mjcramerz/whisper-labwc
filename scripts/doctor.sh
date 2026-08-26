@@ -87,10 +87,12 @@ CPP
     info "OpenMP compiler/runtime probe succeeded"
 fi
 
-if sccache_enabled; then
+if sccache_enabled || cuda_sccache_enabled; then
     require_cmd sccache
-    info "CMake compiler launcher: sccache"
+    prepare_sccache_dir
+    info "CMake compiler launcher: $(cache_launcher_label)"
     info "sccache directory: $SCCACHE_DIR_ABS"
+    [[ -n "$SCCACHE_SERVER_UDS_ABS" ]] && info "sccache server socket: $SCCACHE_SERVER_UDS_ABS"
 elif [[ "$ENABLE_CCACHE" == "1" ]] && ! command -v ccache >/dev/null 2>&1 && ! command -v sccache >/dev/null 2>&1; then
     warn "ENABLE_CCACHE=1 but neither ccache nor sccache is installed; the build remains valid but uncached"
 fi
@@ -121,12 +123,49 @@ if [[ "$ENABLE_FFMPEG" == "1" ]]; then
 fi
 
 if [[ "$ENABLE_CUDA" == "1" ]]; then
-    require_cmd nvcc
+    cuda="$(selected_cuda)"
+    cuda_path="$(canonical_command "$cuda" || true)"
+    [[ -n "$cuda_path" ]] || die "CUDA compiler not found: $cuda"
+    cuda_host="$(selected_cuda_host)"
+    cuda_host_path="$(canonical_command "$cuda_host" || true)"
+    [[ -n "$cuda_host_path" ]] || die "CUDA host compiler not found: $cuda_host"
     cuda_archs="$(detect_cuda_archs || true)"
     [[ -n "$cuda_archs" ]] \
         || die "Could not detect the installed NVIDIA GPU compute capability. Set CUDA_ARCHS explicitly."
-    info "CUDA toolkit: $(nvcc --version 2>/dev/null | tail -n1)"
+
+    cat >"$tmpdir/probe.cu" <<'CUDA'
+__global__ void probe_kernel() {}
+int main() { probe_kernel<<<1, 1>>>(); return 0; }
+CUDA
+    cuda_arch_args=()
+    first_cuda_arch=${cuda_archs%%;*}
+    case "$first_cuda_arch" in
+        native|all|all-major) ;;
+        *-real|*-virtual) first_cuda_arch=${first_cuda_arch%%-*} ;;&
+        *)
+            [[ "$first_cuda_arch" =~ ^[0-9]+$ ]] \
+                || die "CUDA_ARCHS must contain CMake CUDA architecture values, got: '$cuda_archs'"
+            cuda_arch_args+=("-arch=sm_$first_cuda_arch")
+            ;;
+    esac
+    cuda_flags="$(effective_cuda_flags)"
+    read -r -a cuda_flag_array <<<"$CMAKE_CUDA_FLAGS $cuda_flags"
+    cuda_probe_compiler="$cuda_path"
+    if [[ "$ENABLE_CUDA_GLIBC_COMPAT" == "1" ]]; then
+        prepare_cuda_glibc_compat
+        cuda_probe_compiler="$ROOT_DIR/scripts/cuda-compat-nvcc.sh"
+    fi
+    if ! env CMAKE_CUDA_COMPILER_LAUNCHER= "$cuda_probe_compiler" \
+        -ccbin "$cuda_host_path" "${cuda_flag_array[@]}" "${cuda_arch_args[@]}" \
+        -c "$tmpdir/probe.cu" -o "$tmpdir/probe-cuda.o" >"$tmpdir/probe-cuda.log" 2>&1; then
+        tail -n 40 "$tmpdir/probe-cuda.log" >&2
+        die "CUDA compiler rejected host compiler/architecture/flags: $cuda_host_path / $cuda_archs / $CMAKE_CUDA_FLAGS $cuda_flags"
+    fi
+
+    info "CUDA toolkit: $($cuda_path --version 2>/dev/null | tail -n1)"
+    info "CUDA host compiler: $($cuda_host_path --version 2>/dev/null | head -n1)"
     info "Host CUDA architectures: $cuda_archs"
+    info "CUDA architecture/flag probe succeeded"
     if command -v nvidia-smi >/dev/null 2>&1; then
         gpu_summary="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null | paste -sd ';' - || true)"
         [[ -n "$gpu_summary" ]] && info "NVIDIA GPU/driver: $gpu_summary"

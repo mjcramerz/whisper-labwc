@@ -41,6 +41,7 @@ remove_output_products() {
     [[ -e "$OUTPUT_DIR_ABS/bin" ]] && has_products=1
     [[ -e "$OUTPUT_DIR_ABS/metadata" ]] && has_products=1
     [[ -e "$OUTPUT_DIR_ABS/whisper-cli" || -L "$OUTPUT_DIR_ABS/whisper-cli" ]] && has_products=1
+    [[ -e "$OUTPUT_DIR_ABS/whisper-server" || -L "$OUTPUT_DIR_ABS/whisper-server" ]] && has_products=1
     (( has_products == 0 )) && return 0
 
     [[ -f "$OUTPUT_DIR_ABS/.native-builder-output" ]] \
@@ -48,14 +49,15 @@ remove_output_products() {
     safe_remove_path "$OUTPUT_DIR_ABS/bin" "staged binary directory"
     safe_remove_path "$OUTPUT_DIR_ABS/metadata" "metadata directory"
     safe_remove_path "$OUTPUT_DIR_ABS/whisper-cli" "staged binary symlink"
+    safe_remove_path "$OUTPUT_DIR_ABS/whisper-server" "staged server symlink"
     rm -rf -- "${OUTPUT_DIR_ABS:?}/bin" "${OUTPUT_DIR_ABS:?}/metadata"
-    rm -f -- "$OUTPUT_DIR_ABS/whisper-cli"
+    rm -f -- "$OUTPUT_DIR_ABS/whisper-cli" "$OUTPUT_DIR_ABS/whisper-server"
 }
 
 mode=${1:-build}
 case "$mode" in
     build)
-        log "Removing CMake products and staged binary; preserving models and source"
+        log "Removing CMake products and staged binaries; preserving models, source, and archive"
         remove_managed_tree "$BUILD_DIR_ABS" "build directory" .native-builder-build
         remove_output_products
         ;;
